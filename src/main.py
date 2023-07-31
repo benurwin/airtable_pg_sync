@@ -38,3 +38,8 @@ class Sync:
         if self.perpetual:
             self.logger.info('Perpetually syncing changes...')
             perpetual_syncer.PerpetualSyncer(queue=self.queue).start()
+
+
+if __name__ == '__main__':
+    pass
+    # TODO: Add cli stuff here

@@ -4,7 +4,7 @@ import time
 
 from src.core import change_handler
 from src.core.clients import airtable
-from src.core.types import bridges, changes, concepts
+from src.core.types import bridges
 
 
 class PerpetualSyncer:
@@ -15,9 +15,6 @@ class PerpetualSyncer:
     @functools.cached_property
     def logger(self) -> logging.Logger:
         return logging.getLogger('Perpetual Syncer')
-
-    def get_changes(self, change_id: concepts.ChangeId) -> list[changes.Change]:
-        pass
 
     def start(self):
         webhook_cursor = None
