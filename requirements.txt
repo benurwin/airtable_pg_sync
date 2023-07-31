@@ -1,0 +1,3 @@
+pyairtable
+psycopg[binary]
+aiohttp==3.8.1
