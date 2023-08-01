@@ -4,8 +4,7 @@ The goal of this library is to provide an out-of-the-box solution for replicatin
 an entire Airtable base in a Postgres schema. There are two modes of operation:
 
 - **One-off-sync**: This mode will replicate the Airtable base in the specified Postgres schema
-  and then exit. This is useful for creating a backup of the base or for creating
-  a snapshot of the base for analysis.
+  and then exit. This is useful for creating snapshots of the base for analysis or for storage as a backup.
 - **Perpetual sync**: This mode will replicate the Airtable base in the specified Postgres schema
   and then continue to watch for changes in the base. When a change is detected, the
   change will be applied to the Postgres schema. This is useful for creating a
