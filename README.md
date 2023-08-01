@@ -3,7 +3,7 @@
 The goal of this library is to provide an out-of-the-box solution for replicating
 an entire Airtable base in a Postgres schema. There are two modes of operation:
 
-- **One off sync**: This mode will replicate the Airtable base in the specified Postgres schema
+- **One-off-sync**: This mode will replicate the Airtable base in the specified Postgres schema
   and then exit. This is useful for creating a backup of the base or for creating
   a snapshot of the base for analysis.
 - **Perpetual sync**: This mode will replicate the Airtable base in the specified Postgres schema
@@ -23,6 +23,7 @@ pip install airtable-postgres-sync
 
 To use this library, you will need to create a personal access token in Airtable. This
 token will need to have the following scopes:
+
 - data.records:read
 - schema.bases:read
 - webhook:manage
@@ -77,7 +78,7 @@ To trigger a sync from within a python program, run the following code:
 ```python
 from airtable_pg_sync import Sync
 
-Sync(config_path="/path/to/config.yml", perpetual=True/False).run()
+Sync(config_path="/path/to/config.yml", perpetual=True / False).run()
 ```
 
 ## Bugs, Feature Requests, and Contributions
