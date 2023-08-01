@@ -19,6 +19,17 @@ To install the library, run the following command:
 pip install airtable-postgres-sync
 ```
 
+## Permissions
+
+To use this library, you will need to create a personal access token in Airtable. This
+token will need to have the following scopes:
+- data.records:read
+- schema.bases:read
+- webhook:manage
+
+You will also need to give the Postgres user that you are using read and write access to the schema
+you are syncing to.
+
 ## Usage
 
 To use the library, you will need to create a config file. The config file defines
@@ -66,7 +77,7 @@ To trigger a sync from within a python program, run the following code:
 ```python
 from airtable_pg_sync import Sync
 
-Sync(config_path="/path/to/config.yml").sync()
+Sync(config_path="/path/to/config.yml", perpetual=True/False).run()
 ```
 
 ## Bugs, Feature Requests, and Contributions
