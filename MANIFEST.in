@@ -1,0 +1,1 @@
+include airtable_pg_sync/logging.conf
