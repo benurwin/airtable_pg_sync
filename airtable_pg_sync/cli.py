@@ -6,6 +6,7 @@ import click
 from rich import console as rich_console
 
 from . import sync
+import pkg_resources
 
 
 class RichGroup(click.Group):
@@ -47,7 +48,7 @@ class RichGroup(click.Group):
 
 
 def setup_logging():
-    logging.config.fileConfig('airtable_pg_sync/logging.conf', disable_existing_loggers=False)
+    logging.config.fileConfig(pkg_resources.resource_filename(__name__, './logging.conf'), disable_existing_loggers=False)
     root_logger = logging.getLogger()
     root_logger.setLevel("INFO")
     root_logger.info(f'Logger created')
