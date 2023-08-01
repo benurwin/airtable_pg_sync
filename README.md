@@ -10,6 +10,14 @@ an entire Airtable base in a Postgres schema. There are two modes of operation:
   change will be applied to the Postgres schema. This is useful for creating a
   replica of the base that can be used for analysis in real time.
 
+
+This library will produce a Postgres table and view for each of the tables in the specified Airtable base.
+The table will take the Airtable table id for its name and the field ids for its column names. The view will have the 
+same name as the Airtable table and the column names will be the same as the Airtable column names.
+For most analysis use cases it makes sense to use the view as it is more readable, but for applications requiring 
+robustness with respect to column name changes the table should be used.
+
+
 ## Installation
 
 To install the library, run the following command:
@@ -79,6 +87,14 @@ from airtable_pg_sync import Sync
 
 Sync(config_path="/path/to/config.yml", perpetual=True / False).run()
 ```
+
+
+## Testing and Deployment
+
+When testing this library for your use case the [ngrok](https://ngrok.com/) service is very useful. It allows you to listen 
+for requests sent over the internet to your PC (ie the webhook POST requests).
+
+For deployment it is recommended that you run the library in an AWS EC2 type service. A t2.micro instance should suffice.
 
 ## Bugs, Feature Requests, and Contributions
 
