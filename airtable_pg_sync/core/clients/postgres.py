@@ -10,18 +10,20 @@ from ..types import concepts
 
 
 class Client:
-    def __init__(self):
-        self.connection_info = env.DB_INFO.conn_info
-        self.schema = env.DB_INFO.schema_name
-        self.__connection = None
+    __connection = None
+    __cursor = None
+
+    def __init__(self, schema: str):
+        self.schema = schema
 
     @functools.cached_property
     def logger(self) -> logging.Logger:
         return logging.getLogger('Postgres Client')
 
+    @classmethod
     def connection(self) -> psycopg.Connection:
-        if not self.__connection:
-            self.__connection = psycopg.connect(conninfo=self.connection_info, autocommit=True)
+        if self.__connection is None or self.__connection.closed:
+            self.__connection = psycopg.connect(conninfo=env.value.connection_info, autocommit=True)
 
         return self.__connection
 
@@ -37,35 +39,61 @@ class Client:
         self.logger.debug('Creating schema if it doesnt exist')
         self._run_query(sql.SQL('CREATE SCHEMA IF NOT EXISTS {schema}').format(schema=sql.Identifier(self.schema)))
 
+    def create_table_names_table_if_not_exists(self) -> None:
+        self.logger.debug('Creating table_name table if it doesnt exist')
+        self._run_query(
+            sql.SQL('''
+                CREATE TABLE IF NOT EXISTS {schema}.table_names (
+                    id VARCHAR(17) PRIMARY KEY,
+                    name VARCHAR(255),
+                    CONSTRAINT unique_id UNIQUE (id)
+                )
+            ''').format(schema=sql.Identifier(self.schema))
+        )
+
     def get_schema(self) -> list[concepts.Table]:
         self.logger.debug('Getting schema')
         query = sql.SQL('''
                 SELECT
                     tables.table_name,
-                    array_agg(ARRAY[column_name, data_type]) AS columns
+                    array_agg(DISTINCT ARRAY[column_name, data_type]) AS columns
                 FROM information_schema.tables
-                LEFT JOIN information_schema.columns ON columns.table_name = tables.table_name
+                LEFT JOIN information_schema.columns ON 
+                    columns.table_name = tables.table_name AND
+                    columns.table_schema = tables.table_schema
                 WHERE
                     tables.table_schema = {schema} AND
-                    tables.table_type = 'BASE TABLE'
+                    tables.table_type = 'BASE TABLE' AND
+                    tables.table_name IS DISTINCT FROM 'table_names'                    
                 GROUP BY tables.table_name;
             ''')
+        table_info = self._run_query(query.format(schema=self.schema), fetch=True)
+
+        query = sql.SQL('SELECT * FROM {table_path}')
+        table_names = self._run_query(query.format(table_path=sql.SQL(f'{self.schema}.table_names')), fetch=True)
 
         return [
             concepts.Table(
                 id=table[0],
-                name='',
+                name=next((name[1] for name in table_names if name[0] == table[0]), None),
                 fields=[
                     concepts.Field(id=field[0], name='Dummy name (FROM DB)', type=field[1])
                     for field in table[1] if field[0] != 'id' and field != [None, None]
                 ]
-            ) for table in self._run_query(query.format(schema=self.schema), fetch=True)
+            ) for table in table_info
         ]
 
     def drop_table(self, table_id: concepts.TableId) -> None:
         self.logger.debug(f'Dropping table: {table_id}')
         self._run_query(
-            sql.SQL('DROP TABLE {table_path} CASCADE').format(table_path=sql.SQL(f'{self.schema}."{table_id}"')),
+            sql.SQL('DROP TABLE IF EXISTS {table_path} CASCADE').format(table_path=sql.SQL(f'{self.schema}."{table_id}"')),
+            fetch=False
+        )
+        self._run_query(
+            sql.SQL('DELETE FROM {schema}.table_names WHERE id = {id}').format(
+                schema=sql.Identifier(self.schema),
+                id=sql.Literal(table_id)
+            ),
             fetch=False
         )
 
@@ -80,11 +108,19 @@ class Client:
             ),
             fetch=False
         )
+        self._run_query(
+            sql.SQL('INSERT INTO {schema}.table_names (id, name) VALUES ({id}, {name})').format(
+                schema=sql.Identifier(self.schema),
+                id=sql.Literal(table.id),
+                name=sql.Literal(table.name)
+            ),
+            fetch=False
+        )
 
     def drop_field(self, table_id: concepts.TableId, field_id: concepts.FieldId) -> None:
         self.logger.debug(f'Dropping field: {field_id} from table: {table_id}')
         self._run_query(
-            sql.SQL('ALTER TABLE {table_path} DROP COLUMN {field_path} CASCADE').format(
+            sql.SQL('ALTER TABLE {table_path} DROP COLUMN IF EXISTS {field_path} CASCADE').format(
                 table_path=sql.SQL(f'{self.schema}."{table_id}"'),
                 field_path=sql.SQL(f'"{field_id}"')
             ),
@@ -113,11 +149,15 @@ class Client:
             fetch=False
         )
 
-    def get_rows(self, table: concepts.Table) -> list[concepts.Row]:
+    def get_rows(self, table: concepts.Table, id_filter: list[concepts.RowId] = None) -> list[concepts.Row]:
         self.logger.debug(f'Getting rows from table: {table.id}')
-        query = sql.SQL('SELECT id, {columns} FROM {table_path}').format(
+        query = sql.SQL(
+            'SELECT id, {columns} FROM {table_path}'
+            if id_filter is None else 'SELECT id, {columns} FROM {table_path} WHERE id = ANY({id_filter})'
+        ).format(
             table_path=sql.SQL(f'{self.schema}."{table.id}"'),
-            columns=sql.SQL(', ').join((sql.SQL(f'"{field.id}"') for field in table.fields))
+            columns=sql.SQL(', ').join((sql.SQL(f'"{field.id}"') for field in table.fields)),
+            id_filter=sql.Literal(id_filter)
         )
 
         return [
@@ -128,6 +168,35 @@ class Client:
                 ]
             ) for row in self._run_query(query, fetch=True)
         ]
+
+    def get_row_id_chunks(
+            self,
+            table: concepts.Table,
+            chunk_size: int = 100,
+    ) -> typing.Generator[list[concepts.RowId], None, None]:
+        self.logger.debug(f'Getting rows from table: {table.id}')
+        query = sql.SQL('SELECT id FROM {table_path} LIMIT {limit} OFFSET {offset}')
+
+        results = None
+        first_loop = True
+        offset = 0
+
+        while results or first_loop:
+
+            if first_loop:
+                first_loop = False
+
+            formatted_query = query.format(
+                table_path=sql.SQL(f'{self.schema}."{table.id}"'),
+                columns=sql.SQL(', ').join((sql.SQL(f'"{field.id}"') for field in table.fields)),
+                limit=sql.Literal(chunk_size),
+                offset=sql.Literal(offset)
+            )
+            results = [row[0] for row in self._run_query(formatted_query, fetch=True)]
+
+            yield results
+
+            offset += chunk_size
 
     def drop_row(self, table_id: concepts.TableId, row_id: concepts.RowId) -> None:
         self.logger.debug(f'Dropping row: {row_id} from table: {table_id}')
@@ -144,7 +213,13 @@ class Client:
 
         if row.field_values:
             self._run_query(
-                sql.SQL('INSERT INTO {table_path} (id, {field_columns}) VALUES ({id_value}, {field_values})').format(
+                sql.SQL(
+                '''
+                    INSERT INTO {table_path} (id, {field_columns}) 
+                    VALUES ({id_value}, {field_values})
+                    ON CONFLICT (id) DO UPDATE SET {field_updates}
+                '''
+                ).format(
                     table_path=sql.SQL(f'{self.schema}."{table_id}"'),
                     field_columns=sql.SQL(', ').join(
                         (sql.SQL(f'"{field_value.field.id}"') for field_value in row.field_values)
@@ -152,6 +227,12 @@ class Client:
                     id_value=sql.Literal(row.id),
                     field_values=sql.SQL(', ').join(
                         (sql.Literal(field_value.value) for field_value in row.field_values)
+                    ),
+                    field_updates=sql.SQL(', ').join(
+                        (sql.SQL('{field_id} = {field_value}').format(
+                            field_id=sql.SQL(f'"{field_value.field.id}"'),
+                            field_value=sql.Literal(field_value.value)
+                        ) for field_value in row.field_values)
                     )
                 ),
                 fetch=False
@@ -159,7 +240,7 @@ class Client:
             return
 
         self._run_query(
-            sql.SQL('INSERT INTO {table_path} (id) VALUES ({id_value})').format(
+            sql.SQL('INSERT INTO {table_path} (id) VALUES ({id_value}) ON CONFLICT DO NOTHING').format(
                 table_path=sql.SQL(f'{self.schema}."{table_id}"'),
                 id_value=sql.Literal(row.id)
             ),
@@ -183,15 +264,41 @@ class Client:
             fetch=False
         )
 
-    def drop_view(self, view_name: str):
+    def drop_view(self, table: concepts.Table) -> None:
+        # Get the view name from the table names table
+        view_name = self._run_query(
+            sql.SQL('SELECT name FROM {schema}.table_names WHERE id = {id}').format(
+                schema=sql.Identifier(self.schema),
+                id=sql.Literal(table.id)
+            ),
+            fetch=True
+        )[0][0]
+
+        # Drop the view
         self._run_query(
-            sql.SQL('DROP VIEW IF EXISTS {table_path} CASCADE').format(
-                table_path=sql.SQL(f'{self.schema}."{view_name}"'),
+            sql.SQL('DROP VIEW IF EXISTS {view_path} CASCADE').format(
+                view_path=sql.SQL(f'{self.schema}."{view_name}"')
             ),
             fetch=False
         )
 
-    def get_all_views(self):
+        # Update the table names table
+        self._run_query(
+            sql.SQL(
+                '''
+                INSERT INTO {schema}.table_names (id, name) 
+                VALUES ({id}, {name})
+                ON CONFLICT (id) DO UPDATE SET name = {name}
+                '''
+            ).format(
+                schema=sql.Identifier(self.schema),
+                id=sql.Literal(table.id),
+                name=sql.Literal(None)
+            ),
+            fetch=False
+        )
+
+    def get_all_views(self) -> list[str]:
         return [x[0] for x in self._run_query(
             sql.SQL("""
             SELECT table_name FROM information_schema.tables
@@ -205,12 +312,29 @@ class Client:
     def create_view(self, table: concepts.Table):
         self.logger.debug(f'Creating view for table: {table.id}')
         self._run_query(
-            sql.SQL('CREATE VIEW {view_path} AS SELECT {columns_and_names} FROM {table_path}').format(
+            sql.SQL('CREATE VIEW {view_path} AS SELECT id, {columns_and_names} FROM {table_path}').format(
                 view_path=sql.SQL(f'{self.schema}."{table.name}"'),
                 table_path=sql.SQL(f'{self.schema}."{table.id}"'),
                 columns_and_names=sql.SQL(', ').join(
                     (sql.SQL(f'"{field.id}" AS "{field.name}"') for field in table.fields)
                 )
+            ),
+            fetch=False
+        )
+
+    def update_table_name(self, table: concepts.Table):
+        self.logger.debug(f'Updating table name id: {table.id} to: {table.name}')
+        self._run_query(
+            sql.SQL(
+                '''
+                INSERT INTO {schema}.table_names (id, name) 
+                VALUES ({id}, {name})
+                ON CONFLICT (id) DO UPDATE SET name = {name}
+                '''
+            ).format(
+                schema=sql.Identifier(self.schema),
+                id=sql.Literal(table.id),
+                name=sql.Literal(table.name)
             ),
             fetch=False
         )

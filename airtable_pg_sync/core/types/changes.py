@@ -1,6 +1,7 @@
 import dataclasses
 import typing
 
+from . import env_types
 from ..types import concepts
 
 
@@ -80,6 +81,9 @@ class TableNameChange:
     table_id: concepts.TableId
     table_name: str
 
+@dataclasses.dataclass
+class ImportedTable:
+    table_id: concepts.TableId
 
 Change = typing.Union[
     CellChange,
@@ -91,5 +95,12 @@ Change = typing.Union[
     FieldNameChange,
     NewTable,
     DestroyedTable,
-    TableNameChange
+    TableNameChange,
+    ImportedTable
 ]
+
+
+@dataclasses.dataclass
+class ChangeContext:
+    id: concepts.ChangeId
+    replication: env_types.Replication

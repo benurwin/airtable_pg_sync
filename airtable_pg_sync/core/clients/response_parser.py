@@ -1,4 +1,5 @@
 import functools
+import itertools
 import logging
 
 from ..types import changes, concepts
@@ -23,13 +24,33 @@ class ResponseParser:
                                ]
                                ) for table in response]
 
-    @staticmethod
-    def parse_field_value(field_value: str | list | dict) -> str | list:
+    def parse_field_value(self, field_value: str | list | dict) -> str | list:
         if isinstance(field_value, list):
-            return [value['name'] for value in field_value]
+            return [self.parse_field_value(value) for value in field_value]
 
         if isinstance(field_value, dict):
-            return field_value.get('name') or field_value.get('text') or field_value['url']
+            if 'linkedRecordIds' in field_value:
+                return list(itertools.chain.from_iterable([
+                    self.parse_field_value(value)
+                    for value in field_value['valuesByLinkedRecordId'].values()
+                ]))
+
+            # If user field use the email as the value
+            if 'email' in field_value:
+                return field_value['email']
+
+            # Drop down case take the name as the value
+            if 'color' in field_value and 'name' in field_value:
+                return field_value['name']
+
+            if 'id' in field_value:
+                return field_value['id']
+
+            # If select or url field use the name as the value
+            if 'name' in field_value:
+                return field_value['name']
+
+            raise NotImplementedError(f'Unknown field value: {field_value}')
 
         return field_value
 
@@ -90,7 +111,7 @@ class ResponseParser:
         new_values = []
 
         for row_id, values in rows.items():
-            new_values.extend(self._parse_changed_records_by_id(table_id, {'current': values}))
+            new_values.extend(self._parse_changed_records_by_id(table_id, {row_id: {'current': values}}))
 
         return created_rows + new_values
 
@@ -119,6 +140,10 @@ class ResponseParser:
         return [changes.TableNameChange(table_id=table_id, table_name=metadata['current']['name'])]
 
     def _parse_created_tables_by_id(self, table_id: str, received_changes: dict) -> list[changes.Change]:
+
+        if 'metadata' not in received_changes:
+            return [changes.ImportedTable(table_id=table_id)]
+
         new_table = [
             changes.NewTable(
                 table=concepts.Table(
@@ -126,7 +151,7 @@ class ResponseParser:
                     name=received_changes['metadata']['name'],
                     fields=[
                         concepts.Field(id=field_id, name=field['name'], type=field['type'])
-                        for field_id, field in received_changes['fieldsById'].items()
+                        for field_id, field in received_changes.get('fieldsById', {}).items()
                     ]
                 )
             )
@@ -144,6 +169,7 @@ class ResponseParser:
         out = []
 
         for key, change in received_changes.items():
+
             if key == 'changedRecordsById':
                 out.extend(self._parse_changed_records_by_id(table_id, change))
 
@@ -156,7 +182,7 @@ class ResponseParser:
             elif key == 'createdRecordsById':
                 out.extend(self._parse_created_records_by_id(table_id, change))
 
-            elif key == 'deletedRecordIds':
+            elif key == 'destroyedRecordIds':
                 out.extend(self._parse_deleted_record_ids(table_id, change))
 
             elif key == 'changedFieldsById':
@@ -172,19 +198,43 @@ class ResponseParser:
 
     def parse_webhook_payload(self, payload: dict) -> list[changes.Change]:
         out = []
+        recognized_pyload_type = False
+        print(payload)
 
-        for table_id, received_changes in payload.get('changedTablesById', {}).items():
-            out.extend(self._parse_table_change_by_id(table_id, received_changes))
+        try:
 
-        for table_id, received_changes in payload.get('createdTablesById', {}).items():
-            out.extend(self._parse_created_tables_by_id(table_id, received_changes))
+            if 'changedTablesById' in payload:
+                recognized_pyload_type = True
 
-        for table_id in payload.get('destroyedTableIds', []):
-            out.extend(self._parse_destroyed_tables_id(table_id))
+                for table_id, received_changes in payload.get('changedTablesById', {}).items():
+                    out.extend(self._parse_table_change_by_id(table_id, received_changes))
 
-        if not out:
-            self.logger.error('Unknown payload type')
-            for k, v in payload.items():
-                self.logger.error(f'{k}: {v}')
+            if 'createdTablesById' in payload:
+                recognized_pyload_type = True
+
+                for table_id, received_changes in payload.get('createdTablesById', {}).items():
+                    out.extend(self._parse_created_tables_by_id(table_id, received_changes))
+
+            if 'destroyedTableIds' in payload:
+                recognized_pyload_type = True
+
+                for table_id in payload.get('destroyedTableIds', []):
+                    out.extend(self._parse_destroyed_tables_id(table_id))
+
+            if not recognized_pyload_type:
+                self.logger.error('Unknown payload type')
+                self.logger.error(payload)
+
+                raise RuntimeError('Unknown payload type')
+
+            if not out:
+                self.logger.warning('Could not find any changes in payload')
+                self.logger.warning(payload)
+
+        except Exception as e:
+            self.logger.error('Error parsing webhook payload')
+            self.logger.error(payload)
+            self.logger.exception(e)
+            raise e
 
         return out

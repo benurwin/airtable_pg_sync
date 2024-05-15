@@ -101,7 +101,7 @@ TableId = typing.Annotated[str, 'Table ID']
 @dataclasses.dataclass
 class Table:
     id: TableId
-    name: str
+    name: str | None
     fields: list[Field]
 
     def __post_init__(self):
@@ -129,4 +129,5 @@ class Row:
 
 ChangeId = typing.Annotated[str, 'Change ID']
 WebhookId = typing.Annotated[str, 'Webhook ID']
+WebhookUrl = typing.Annotated[str, 'Webhook URL']
 WebhookCursor = typing.Annotated[str, 'Webhook Cursor']

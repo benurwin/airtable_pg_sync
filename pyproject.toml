@@ -6,8 +6,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "airtable_pg_sync"
-version = "0.0.3"
-description = "Sync an Airtable base to a Postgres schema in real time"
+version = "0.0.37"
+description = "Sync Airtable bases to a Postgres schemas in real time"
 readme = "README.md"
 authors = [{ name = "Benjamin Urwin", email = "benurwin@outlook.com" }]
 license = { file = "LICENSE" }
@@ -16,8 +16,8 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
 ]
-keywords = ["airtable", "postgres", "sync", "realtime", "database", "changes"]
-dependencies = ["pyairtable", "psycopg[binary]", "aiohttp", "click", "pyyaml", "rich", "python-dateutil"]
+keywords = ["airtable", "postgres", "sync", "realtime", "webhook"]
+dependencies = ["requests", "psycopg[binary]", "aiohttp", "click", "pyyaml", "rich", "python-dateutil"]
 requires-python = ">=3.9"
 
 [project.urls]

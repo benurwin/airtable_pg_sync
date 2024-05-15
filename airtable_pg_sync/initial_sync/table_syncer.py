@@ -1,14 +1,16 @@
 import functools
 import logging
 
+from . import reduced_memory_usage_row_syncer, row_syncer
 from ..core import change_handler
-from ..core.types import changes, concepts
-from . import row_syncer
+from ..core import env
+from ..core.types import changes, concepts, env_types
 
 
 class TableSyncer:
 
-    def __init__(self, airtable_table: concepts.Table, pg_table: concepts.Table):
+    def __init__(self, replication: env_types.Replication, airtable_table: concepts.Table, pg_table: concepts.Table):
+        self.replication = replication
         self.airtable_table = airtable_table
         self.pg_table = pg_table
         self.airtable_fields = {field.id: field for field in self.airtable_table.fields}
@@ -55,11 +57,16 @@ class TableSyncer:
         return changed_fields
 
     def _sync_rows(self):
-        row_syncer.RowSyncer(table=self.airtable_table).sync()
+        if env.value.reduced_memory:
+            self.logger.info('Using reduced memory row syncer')
+            reduced_memory_usage_row_syncer.RowSyncer(replication=self.replication, table=self.airtable_table).sync()
+
+        else:
+            row_syncer.RowSyncer(replication=self.replication, table=self.airtable_table).sync()
 
     def sync(self):
-        self.logger.info('Syncing table')
-        handler = change_handler.Handler()
+        self.logger.info(f'Syncing table - {self.airtable_table.name} ({self.airtable_table.id})')
+        handler = change_handler.Handler(self.replication)
 
         for change in [
             *self._get_new_field_changes(),
