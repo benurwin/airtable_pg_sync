@@ -23,7 +23,7 @@ robustness with respect to column name changes the table should be used.
 To install the library, run the following command:
 
 ```bash
-pip install airtable-postgres-sync
+pip install airtable-pg-sync
 ```
 
 ## Permissions
@@ -47,19 +47,23 @@ the following fields:
 
 ```yaml
 AIRTABLE_PG_SYNC:
-  DB_INFO:
-    HOST: # Postgres host
-    PORT: # Postgres port
-    USER: # Postgres user
-    PASSWORD: # Postgres password
-    DB_NAME: # Postgres database name
-    SCHEMA_NAME: # Postgres schema name
-  AIRTABLE_INFO:
-    BASE_ID: # Airtable base id to sync
-    PAT: # Airtable personal access token
-  LISTENER_INFO:
-    WEBHOOK_URL: # The url that Airtable will send change notifications to
-    PORT: # The port to listen for change notifications on
+  REDUCED_MEMORY: # boolean, if true will use less memory but will be slower when initially syncing tables
+  DB_HOST: # Postgres host
+  DB_PORT: # Postgres port
+  DB_USER: # Postgres user
+  DB_PASSWORD: # Postgres password
+  DB_NAME: # Postgres database name
+  AIRTABLE_PAT: # Airtable personal access token
+  LISTENER_PORT: # The port to listen for change notifications on
+  WEBHOOK_URL: # The url that Airtable will send change notifications to
+    REPLICATION_NAME_ONE: # The name of the table in Airtable
+        TABLE_NAME: # The name of the table in Airtable
+        BASE_ID: # Airtable base id to sync
+        SCHEMA_NAME: # Postgres schema name
+    REPLICATION_NAME_TWO: # The name of the table in Airtable
+        TABLE_NAME: # The name of the table in Airtable
+        BASE_ID: # Airtable base id to sync
+        SCHEMA_NAME: # Postgres schema name
 ```
 
 The library can be used in two ways:
@@ -94,7 +98,9 @@ Sync(config_path="/path/to/config.yml", perpetual=True / False).run()
 When testing this library for your use case the [ngrok](https://ngrok.com/) service is very useful. It allows you to listen 
 for requests sent over the internet to your PC (ie the webhook POST requests).
 
-For deployment it is recommended that you run the library in an AWS EC2 type service. A t2.micro instance should suffice.
+For deployment, it is recommended that you run the library in an AWS EC2 or ECS type service. 
+When using reduced memory mode, an instance with 0.25 vCPU and 0.5 GB of memory will be sufficient.
+WHen not using reduced memory mode, the instance size will depend on the size of your data set.
 
 ## Bugs, Feature Requests, and Contributions
 
