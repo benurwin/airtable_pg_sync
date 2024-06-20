@@ -21,7 +21,6 @@ class Queue:
     def add(self, id: concepts.ChangeId, replication: env_types.Replication) -> None:
         self.values.append(changes.ChangeContext(id=id, replication=replication))
 
-
     def __get_change_group(self) -> list[tuple[changes.ChangeContext, changes.Change]] | None:
 
         if self.empty:
@@ -56,6 +55,7 @@ class Queue:
 
             for change_context, change in self.__get_change_group():
                 yield change_context, change
+
     @property
     def generator(self):
         if not self.__generator:

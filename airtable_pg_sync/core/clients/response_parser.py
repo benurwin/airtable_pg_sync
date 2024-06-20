@@ -157,7 +157,7 @@ class ResponseParser:
             )
         ]
 
-        new_values = self._parse_created_records_by_id(table_id, received_changes['recordsById'])
+        new_values = self._parse_created_records_by_id(table_id, received_changes.get('recordsById', {}))
 
         return new_table + new_values
 
