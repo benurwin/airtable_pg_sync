@@ -56,12 +56,10 @@ AIRTABLE_PG_SYNC:
   AIRTABLE_PAT: # Airtable personal access token
   LISTENER_PORT: # The port to listen for change notifications on
   WEBHOOK_URL: # The url that Airtable will send change notifications to
-    REPLICATION_NAME_ONE: # The name of the table in Airtable
-        TABLE_NAME: # The name of the table in Airtable
+    REPLICATION_NAME_ONE: # Unique dummy identifier for the replication 
         BASE_ID: # Airtable base id to sync
         SCHEMA_NAME: # Postgres schema name
-    REPLICATION_NAME_TWO: # The name of the table in Airtable
-        TABLE_NAME: # The name of the table in Airtable
+    REPLICATION_NAME_TWO: # Unique dummy identifier for the replication 
         BASE_ID: # Airtable base id to sync
         SCHEMA_NAME: # Postgres schema name
 ```
