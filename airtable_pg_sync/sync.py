@@ -66,8 +66,3 @@ class Sync:
                 self.logger.info('Clearing queue')
                 self.queue.clear()
                 self.logger.info('Re-syncing all tables')
-
-
-if __name__ == '__main__':
-    setup_logging()
-    Sync(config_path='config.yaml').run()
