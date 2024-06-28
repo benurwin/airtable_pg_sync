@@ -28,6 +28,7 @@ class WebhookListener:
     async def handle_event(self, request, replication: env_types.Replication) -> web.Response:
         self.logger.info('Received webhook event - adding to queue')
         res = json.loads(await request.text())
+        self.logger.info(res)
         self.queue.add(id=res['webhook']['id'], replication=replication)
 
         return web.Response(text="Nice Webhook")

@@ -20,6 +20,7 @@ def setup_logging():
 
     logging.getLogger('asyncio').setLevel(logging.WARNING)
 
+
 class Sync:
 
     def __init__(self, config_path: str, perpetual: bool = True):
@@ -65,3 +66,8 @@ class Sync:
                 self.logger.info('Clearing queue')
                 self.queue.clear()
                 self.logger.info('Re-syncing all tables')
+
+
+if __name__ == '__main__':
+    setup_logging()
+    Sync(config_path='config.yaml').run()

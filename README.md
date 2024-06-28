@@ -98,7 +98,7 @@ for requests sent over the internet to your PC (ie the webhook POST requests).
 
 For deployment, it is recommended that you run the library in an AWS EC2 or ECS type service. 
 When using reduced memory mode, an instance with 0.25 vCPU and 0.5 GB of memory will be sufficient.
-WHen not using reduced memory mode, the instance size will depend on the size of your data set.
+When not using reduced memory mode, the instance size will depend on the size of your data set.
 
 ## Bugs, Feature Requests, and Contributions
 
