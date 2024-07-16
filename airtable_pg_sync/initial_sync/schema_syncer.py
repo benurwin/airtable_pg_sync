@@ -67,4 +67,3 @@ class SchemaSyncer:
             handler.handle_change(change)
 
         self._sync_tables()
-#
