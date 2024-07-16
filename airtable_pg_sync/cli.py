@@ -80,7 +80,3 @@ def cli():
 
 cli.add_command(click.command()(one_time_sync))
 cli.add_command(click.command()(perpetual_sync))
-
-
-def main():
-    cli()

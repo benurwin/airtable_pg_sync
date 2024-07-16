@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "airtable_pg_sync"
-version = "0.0.41"
+version = "0.0.47"
 description = "Sync Airtable bases to a Postgres schemas in real time"
 readme = "README.md"
 authors = [{ name = "Benjamin Urwin", email = "benurwin@outlook.com" }]
@@ -24,4 +24,4 @@ requires-python = ">=3.9"
 Homepage = "https://github.com/benurwin/airtable_pg_sync"
 
 [project.scripts]
-airtable_pg_sync = "airtable_pg_sync:cli"
+airtable_pg_sync = "airtable_pg_sync.cli:cli"

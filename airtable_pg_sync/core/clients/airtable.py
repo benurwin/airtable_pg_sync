@@ -99,6 +99,9 @@ class Client:
         self.logger.debug('Listing webhooks')
         response = self._fetch(f'bases/{self.base}/webhooks')
 
+        if response.status_code == 403:
+            raise RuntimeError('Airtable PAT is not authorized to list webhooks')
+
         return [(x['id'], x['notificationUrl']) for x in response.json()['webhooks']]
 
     def delete_webhook(self, webhook_id: concepts.WebhookId):
