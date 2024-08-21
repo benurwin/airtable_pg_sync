@@ -11,10 +11,10 @@ TYPE_MAPPING = {
     'CURRENCY': 'FLOAT',
     'SINGLELINETEXT': 'TEXT',
     'RICHTEXT': 'TEXT',
-    'MULTIPLERECORDLINKS': 'TEXT[]',
+    'MULTIPLERECORDLINKS': 'TEXT',
     'AUTONUMBER': 'FLOAT',
     'DATE': 'DATE',
-    'MULTIPLELOOKUPVALUES': 'TEXT[]',
+    'MULTIPLELOOKUPVALUES': 'TEXT',
     'MULTILINETEXT': 'TEXT',
     'DOUBLE PRECISION': 'FLOAT',
     'TEXT': 'TEXT',
@@ -56,8 +56,16 @@ def parse_timestamp(timestamp: str | datetime.datetime) -> str | None:
     return time_stamp.replace(tzinfo=None).isoformat(timespec='seconds')
 
 
+def text_parser(value) -> str:
+
+    if isinstance(value, list | tuple | set):
+        return ', '.join([str(x) for x in value])
+
+    return str(value)
+
+
 VALUE_PARSER = {
-    'TEXT': lambda x: str(x),
+    'TEXT': text_parser,
     'FLOAT': lambda x: float(x),
     'INTEGER': lambda x: int(x),
     'DATE': lambda x: str(x),

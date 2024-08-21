@@ -20,6 +20,7 @@ def setup_logging():
 
     logging.getLogger('asyncio').setLevel(logging.WARNING)
 
+
 class Sync:
 
     def __init__(self, config_path: str, perpetual: bool = True):
