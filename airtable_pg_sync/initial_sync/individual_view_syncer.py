@@ -28,10 +28,9 @@ class IndividualViewSyncer:
         return logging.getLogger('Schema Syncer')
 
     @functools.cached_property
-    def airtable_table(self) -> concepts.Table | None:
+    def airtable_table(self) -> concepts.Table:
         self.logger.debug('Getting schema from Airtable')
         trys = 0
-        out = None
 
         while trys < 5:
             out = next(
@@ -41,12 +40,12 @@ class IndividualViewSyncer:
             trys += 1
 
             if out:
-                break
+                return out
 
             self.logger.info(f'Could not find table {self.pg_table.id} in Airtable. Trying again in 0.5 seconds')
             time.sleep(0.5)
 
-        return out
+        raise ValueError(f'Could not find table {self.pg_table.id} in Airtable')
 
     def drop_view(self) -> None:
         self.logger.info(f'Dropping view {self.pg_table.name}')
@@ -66,10 +65,13 @@ class IndividualViewSyncer:
         postgres.Client(self.replication.schema_name).update_table_name(table=self.airtable_table)
 
     def sync(self) -> None:
-        if not self.airtable_table:
+
+        try:
+            _ = self.airtable_table
+
+        except ValueError:
             self.logger.warning(f'Table {self.pg_table.id} does not exist in Airtable')
             self.logger.warning('Not syncing view (the assumption is that a destroy table change will be triggered)')
-
             return
 
         self.logger.info(f'Syncing view {self.airtable_table.name}')
